@@ -1,0 +1,97 @@
+<code>gsl-rb</code> wraps the GNU Scientific Library using FFI.  See also Ruby/GSL
+for a c-based wrapper.  GSL-rb uses FFI so it may be used from JRuby
+or any Ruby with FFI support.
+
+Author::  Patrick Mahoney (mailto:pat@polycrystal.org)
+Copyright:: Copyright (c) 2010 Patrick Mahoney
+License:: MIT
+
+== Usage
+
+Objects such as vectors and matricies are fixed size objects; they do
+not automatically grow as new members are added.
+
+The main numeric objects are GSL::Vector and GSL::Matrix.  These
+classes have subclasses of several data typse such as
+GSL::Vector::Int.  The default GSL::Vector.new simply calls
+GSL::Vector::Double.new, similar for the matrix classes.
+
+At the moment, only type +double+ should be expected to work.
+
+=== Vector
+
+A Vector is a one-dimensional array of numbers.  The default Vector
+class uses machine 'double' values.  Other types include Vector::Int
+and others that use machine 'int' values.  Note these types refer to
+the underlying C-types and not to Ruby classes.
+
+=== Matrix
+
+A Matrix is a two-dimensional matrix.  When indexing a matrix,
+<code>[row, col]</code> is the convention used.
+
+=== Example: Indexing
+
+  require 'gsl'
+
+  v = GSL::Vector.new([1,2,3,4])
+  v[0] => 1
+  v[1] => 2
+
+  m = GSL::Matrix.new([[1,2,3],
+                       [4,5,6],
+                       [7,8,9]])
+
+  m[0,0] => 1
+  m[0,1] => 2
+  m[0,2] => 3
+  m[2,2] => 9
+
+  m = GSL::Matrix.new(3, 3, [1,2,3,4,5,6,7,8,9])
+  m.to_ary_rows => [[1,2,3],
+                    [4,5,6],
+                    [7,8,9]]
+
+=== Example: Basic Linear Algebra Subprograms
+
+  require 'gsl'
+  require 'gsl/blas'
+
+  a = GSL::Vector.new([1,2,3])
+  b = GSL::Vector.new([2,2,2])
+
+  a.dot(b)    => 12
+  b.magnitude => 3.46...
+
+  m1 = GSL::Matrix.new([[ 1, 2, 3],
+                        [ 4, 5, 6],
+                        [ 7, 8, 9],
+                        [10,11,12]])
+  m2 = GSL::Matrix.new([[-2],
+                        [ 1],
+                        [ 0]])
+  m1.mul(m2).to_ary_rows => [[ 0]
+                             [-3],
+                             [-6],
+                             [-9]]                        
+
+=== Example: Linear Algebra Solver
+
+  require 'gsl'
+  require 'gsl/linalg'
+
+  m = GSL::Matrix.new([[0.18, 0.60, 0.57, 0.96],
+                       [0.41, 0.24, 0.99, 0.58],
+                       [0.14, 0.30, 0.97, 0.66],
+                       [0.51, 0.13, 0.19, 0.85]])
+
+  # Can also get the inverse after LU_decomp!  But as GSL docs state:
+  # "It is preferable to avoid direct use of the inverse whenever
+  # possible, as the linear solver functions can obtain the same result
+  # more efficiently and reliably"
+  m.inv
+
+
+
+=== Example: Calculating the Inverse of a Square Matrix
+
