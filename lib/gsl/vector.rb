@@ -95,8 +95,7 @@ module GSL
         size = arg
       end
 
-      @gsl = VectorStruct.new(_calloc(size))
-      ObjectSpace.define_finalizer(@gsl, proc {|id| _free(@gsl)})
+      @gsl = VectorStruct.new(alloc(size))
 
       @size = @gsl[:size]
       @stride = @gsl[:stride]
@@ -113,8 +112,7 @@ module GSL
 
     def dup
       d = super()
-      d.gsl = _alloc(size)
-      ObjectSpace.define_finalizer(d.gsl, proc {|id| _free(d.gsl)})
+      d.send(:initialize, size)
       _memcpy(d.gsl, self.gsl)
       d
     end

@@ -119,7 +119,7 @@ module GSL
         raise ArgumentError.new("wrong args: #{args.size} for 1, 2, or 3")
       end
 
-      @gsl = alloc(rows, cols)
+      @gsl = MatrixStruct.new(alloc(rows, cols))
 
       @size = [@gsl[:rows], @gsl[:cols]]
 
@@ -147,17 +147,10 @@ module GSL
       end
     end
 
-    def alloc(rows, cols)
-      g = MatrixStruct.new(_alloc(rows, cols))
-      ObjectSpace.define_finalizer(g, proc {|id| _free(g)})
-      g
-    end
-    private :alloc
-
     # Create a copy of the matrix.
     def dup
       d = super()
-      d.gsl = alloc(rows, cols)
+      d.send(:initialize, rows, cols)
       _memcpy(d.gsl, @gsl)
       d
     end

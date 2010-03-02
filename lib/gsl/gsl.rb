@@ -223,6 +223,18 @@ module GSL
       @gsl = g
     end
 
+    def alloc(*args)
+      ptr = _alloc(*args)
+      if ptr.null?
+        raise GSL::Error:Failed.new('alloc failed for unknown reasons')
+      end
+
+      freeit = proc {|id| _free(ptr)}
+      ObjectSpace.define_finalizer(ptr, freeit)
+
+      ptr
+    end
+
     # These methods are installed via extend into the Vector and
     # Matrix classes (or any class that includes the GSL::Obj module.
     module Support

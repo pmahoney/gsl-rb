@@ -19,8 +19,7 @@ module GSL
     define_foreign_methods
 
     def initialize(size)
-      @gsl = _alloc(size)
-      ObjectSpace.define_finalizer(@gsl, proc {|id| _free(@gsl)})
+      @gsl = alloc(size)
     end
   end
 end
