@@ -17,6 +17,8 @@ class String
   end
 end
 
+depends_on 'ffi', '>=0.6.2'
+
 NAME = "gsl-rb"
 VERS = "0.1.2"
 PKG = "#{NAME}-#{VERS}"
