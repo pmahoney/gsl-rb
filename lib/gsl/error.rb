@@ -84,11 +84,11 @@ module GSL
   attach_function(:gsl_set_error_handler,
                   [:gsl_error_handler_t], :pointer)
 
-  err_handler = proc do |reason, file, line, errno|
+  ERROR_HANDLER = proc do |reason, file, line, errno|
     klass = GSL.status_to_err_class(errno) || Error
     raise klass.new("%s (%s:%d)" % [reason, file, line])
   end
-  GSL.gsl_set_error_handler(err_handler)
+  GSL.gsl_set_error_handler(ERROR_HANDLER)
 
   attach_function :gsl_strerror, [:int], :string
 
