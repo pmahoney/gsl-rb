@@ -71,14 +71,14 @@ describe 'GSL::Vector#to_ary' do
   end
 end
 
-describe 'GSL::Vector#dup' do
+describe 'GSL::Vector#clone' do
   it 'creates a shallow copy' do
     v = GSL::Vector.new(50)
     50.times do |i|
       v[i] = i+1
     end
 
-    d = v.dup
+    d = v.clone
     d.should_not == v
 
     50.times do |i|

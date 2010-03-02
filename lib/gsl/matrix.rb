@@ -5,7 +5,7 @@ module GSL
   attach_prefix_type_function(:gsl_matrix) do
     attach :alloc, [:size_t, :size_t], :pointer
     attach :calloc, [:size_t, :size_t], :pointer
-    attach :free, [:pointer], :void
+    attach :free, [:uintptr_t], :void
 
     attach :get, [:pointer, :size_t, :size_t], :type
     attach :set, [:pointer, :size_t, :size_t, :type], :void
@@ -273,6 +273,10 @@ module GSL
     class Double
       include Matrix
       define_foreign_methods :double
+
+      def self._free(ptr)
+        GSL.gsl_matrix_free(ptr)
+      end
     end
 
     class Float

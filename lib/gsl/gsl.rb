@@ -153,6 +153,8 @@ module GSL
   # FIXME: these are incorrect
   typedef :double, :complex
   typedef :float, :complex_float
+  # uintptr_t isn't defined on all platforms?
+  typedef :ulong, :uintptr_t unless FFI::TypeDefs[:uintptr_t]
 
   enum :status, [:success, 0,
                  :failure, -1,
@@ -229,10 +231,26 @@ module GSL
         raise GSL::Error:Failed.new('alloc failed for unknown reasons')
       end
 
-      freeit = proc {|id| _free(ptr)}
-      ObjectSpace.define_finalizer(ptr, freeit)
+      finalizer = GSL::Obj.finalize(self.class, ptr)
+      ObjectSpace.define_finalizer(ptr, finalizer)
 
       ptr
+    end
+
+    # This needs to be a class method so that the proc does not retain
+    # a reference to 'self' which would then never be garbage
+    # collected (actually, JRuby seems to still collect it while
+    # Ruby1.9 does not).
+    #
+    # Also, we store the address of the pointer so we do not keep a
+    # reference to the pointer object itself.  Note that this requires
+    # the function prototypes of the _free functions specify a
+    # :uintptr_t rather than a :pointer.
+    def self.finalize(klass, ptr)
+      addr = ptr.address
+      proc do |id|
+        klass._free(addr)
+      end
     end
 
     # These methods are installed via extend into the Vector and
@@ -266,6 +284,7 @@ module GSL
           protected(local_method)
         end
       end
+
     end
   end
 

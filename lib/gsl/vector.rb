@@ -5,7 +5,7 @@ module GSL
   attach_prefix_type_function(:gsl_vector) do
     attach :alloc, [:size_t], :pointer
     attach :calloc, [:size_t], :pointer
-    attach :free, [:pointer], :void
+    attach :free, [:uintptr_t], :void
 
     attach :get, [:pointer, :size_t], :type
     attach :set, [:pointer, :size_t, :type], :void
@@ -110,7 +110,7 @@ module GSL
       end
     end
 
-    def dup
+    def clone
       d = super()
       d.send(:initialize, size)
       _memcpy(d.gsl, self.gsl)
@@ -142,7 +142,7 @@ module GSL
 
     # Returns a copy of the vectorwith all elements set to zero.
     def set_zero()
-      dup.set_zero!
+      clone.set_zero!
     end
 
     # Iterate through each value of the vector.
@@ -194,23 +194,23 @@ module GSL
     end
 
     def set_all(value)
-      dup.set_all!(value)
+      clone.set_all!(value)
     end
 
     def add(other)
-      dup.add!(other)
+      clone.add!(other)
     end
 
     def sub(other)
-      dup.sub!(other)
+      clone.sub!(other)
     end
 
     def mul(other)
-      dup.mul!(other)
+      clone.mul!(other)
     end
 
     def div(other)
-      dup.div!(other)
+      clone.div!(other)
     end
 
     # :nodoc:
@@ -231,6 +231,10 @@ module GSL
     class Double
       include Vector
       define_foreign_methods :double
+
+      def self._free(ptr)
+        GSL.gsl_vector_free(ptr)
+      end
     end
 
     class Int
