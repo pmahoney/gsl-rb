@@ -18,7 +18,7 @@ class String
 end
 
 NAME = "gsl-rb"
-VERS = "0.1"
+VERS = "0.1.2"
 PKG = "#{NAME}-#{VERS}"
 RDOC_OPTS = ['--quiet', '--title', 'GSL for Ruby via FFI', '--main', 'README', '--inline-source']
 PKG_FILES = FileList['Rakefile', 'lib/gsl.rb', 'lib/**/*.rb', 'spec/**/*']

@@ -40,7 +40,7 @@ module GSL
     attach :isnull, [:pointer], :int
     attach :ispos, [:pointer], :int
     attach :isneg, [:pointer], :int
-    attach :isnonneg, [:pointer], :int
+    # attach :isnonneg, [:pointer], :int  # function not on darwin?
   end
 
   class VectorStruct < FFI::Struct

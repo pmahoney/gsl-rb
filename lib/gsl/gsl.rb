@@ -1,7 +1,11 @@
 module GSL
 
   extend FFI::Library
-  ffi_lib 'libgslcblas.so.0', 'libgsl.so.0'
+  begin
+    ffi_lib 'libgslcblas', 'libgsl'
+  rescue LoadError
+    ffi_lib 'libgslcblas.so.0', 'libgsl.so.0'
+  end
 
   class << self
 
@@ -79,7 +83,7 @@ module GSL
        # :long_double,
        :int, :uint, :long, :ulong,
        :short, :ushort, :char, :uchar,
-       :complex, :complex_float,
+       # :complex, :complex_float,  # gsl_vector_complex_add not on darwin?
        # :complex_long_double
       ]
     end
