@@ -90,8 +90,3 @@ A Matrix is a two-dimensional matrix.  When indexing a matrix,
   # possible, as the linear solver functions can obtain the same result
   # more efficiently and reliably"
   m.inv
-
-
-
-=== Example: Calculating the Inverse of a Square Matrix
-
