@@ -1,7 +1,5 @@
 # -*- ruby -*-
 
-#require 'rubygems'
-
 require 'rake'
 require 'rake/gempackagetask'
 require 'rake/rdoctask'
@@ -17,8 +15,6 @@ class String
   end
 end
 
-depends_on 'ffi', '>=0.6.2'
-
 NAME = "gsl-rb"
 VERS = "0.1.2"
 PKG = "#{NAME}-#{VERS}"
@@ -30,6 +26,7 @@ GEMSPEC =
     s.version = VERS
     s.platform = Gem::Platform::RUBY
     s.has_rdoc = true
+    s.add_dependency('ffi', '>= 0.6.2')
     s.rdoc_options += RDOC_OPTS
     s.extra_rdoc_files = ["README", "ChangeLog", "COPYING"]
     s.summary = 'Math functions and vector and matrix manipulation'
