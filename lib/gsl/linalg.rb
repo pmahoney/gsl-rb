@@ -38,6 +38,15 @@ module GSL
         @signum = signum[:value]
 
         class << self
+          include LU_Decomp
+        end
+
+        self
+      end
+
+      # Methods that are available to a matrix that is an LU
+      # decomposition.
+      module LU_Decomp
           attr_reader :perm, :signum
 
           # Returns true if +self+ is an LU decomposition matrix
@@ -69,10 +78,6 @@ module GSL
           def inv()
             _LU_invert(perm)
           end
-
-        end
-
-        self
       end
 
       # :nodoc: all

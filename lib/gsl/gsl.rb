@@ -77,82 +77,6 @@ module GSL
         raise ArgumentError.new(msg)
       end
     end
-
-    # Most GSL functions operate over these types or objects based on
-    # these types.
-    def types()
-      [:double, :float,
-       # :long_double,
-       :int, :uint, :long, :ulong,
-       :short, :ushort, :char, :uchar,
-       # :complex, :complex_float,  # gsl_vector_complex_add not on darwin?
-       # :complex_long_double
-      ]
-    end
-
-    # Just the real (non-complex) types
-    def types_real()
-      types.delete_if {|t| (t == :complex ||
-                            t == :complex_float ||
-                            t == :complex_long_double)}
-    end
-
-    # If type is :type, return default, else return type.
-    def typeconv(type, default)
-      if type == :type
-        default
-      else
-        type
-      end
-    end
-
-    # Create a method name following the GSL convention.  For example,
-    # method_name(:gsl_vector, :int, :set) ->
-    # :gsl_vector_int_set. Methods with type :double are the default
-    # and thus do not have the type in the method name.  The type is
-    # also left out if +type+ is nil.
-    def method_name(base, type, suffix)
-      if (type == nil) || (type == :double)
-        (base.to_s + '_' + suffix.to_s).to_sym
-      else
-        (base.to_s + '_' + type.to_s + '_' + suffix.to_s).to_sym
-      end
-    end
-
-    # Defines a method for all data types (double, float, long double,
-    # int, uint, long, ulong, short, ushort, char, uchar, complex,
-    # complex float, complex long double)
-    def attach_type_functions(prefix, suffix, args, ret, types=GSL.types)
-      types.each do |type|
-        # map :type to the actualy type in use
-        newargs = args.map {|v| typeconv(v, type)}
-        newret = typeconv(ret, type)
-
-        fname = method_name(prefix, type, suffix)
-        attach_function(fname, newargs, newret)
-      end
-    end
-
-    # Runs the block in a context that has an "attach" method that
-    # will call attach_type_functions(prefix, suffix, args, ret)
-    def attach_prefix_type_function(prefix, &block)
-      mod = self
-      attacher = Module.new
-      attacher.send(:define_method, :attach) do |suffix, args, ret|
-        mod.send(:attach_type_functions,
-                 prefix, suffix, args, ret)
-      end
-      attacher.send(:module_function, :attach)
-
-      attacher.send(:define_method, :attach_reals) do |suffix, args, ret|
-        mod.send(:attach_type_functions,
-                 prefix, suffix, args, ret, GSL.types_real)
-      end
-      attacher.send(:module_function, :attach_reals)
-
-      attacher.module_eval(&block)
-    end
-
   end
 
   # typedef :double :long_double
@@ -291,7 +215,123 @@ module GSL
         end
       end
 
+      # :nodoc:
+      def gsl_method(local_method, gsl_function)
+        define_method(local_method) do |*args|
+          GSL.send(gsl_function, *args)
+        end
+      end
+      private :gsl_method
+
+      # :nodoc:
+      def gsl_class_method(local_method, gsl_function)
+        klass = (class << self; self; end)
+        klass.instance_eval do
+          define_method(local_method) do |*args|
+            GSL.send(gsl_function, *args)
+          end
+        end
+      end
+      private :gsl_class_method
+
+      # Execute the block in a module context that has two methods:
+      # 'attach' and 'attach_class'.
+      def gsl_methods(prefix, &block)
+        attacher = Attacher.new(prefix, self)
+        attacher.instance_eval(&block)
+      end
+
+    end
+
+    module TypedSupport
+      def gsl_methods(prefix, type, &block)
+        attacher = TypedAttacher.new(prefix, type, self)
+        attacher.instance_eval(&block)
+      end
+    end
+  end
+
+  # Helper class for attaching gsl functions to the GSL module as well
+  # as to a local class.  Attaches the FFI function to the GSL module.
+  # Attaches a local +_suffix()+ method to the local class that calls
+  # the method defined in the GSL module.
+  class Attacher
+    attr_reader :prefix, :local_class
+
+    # Attach gsl functions with prefix +prefix+ to +local_class+.
+    def initialize(prefix, local_class)
+      @prefix = prefix
+      @local_class = local_class
+    end
+
+    # Attach a function with the given +suffix+, function signature
+    # +sig+, and return value +ret+. See FFI::Library#attach_function.
+    #
+    # The local method will be attached as an instance method.
+    def attach(suffix, sig, ret)
+      attach_gsl_method(:gsl_method, suffix, sig, ret)
+    end
+
+    # Attach a function with the given +suffix+, function signature
+    # +sig+, and return value +ret+. See FFI::Library#attach_function.
+    #
+    # The local method will be attached as a class method.
+    def attach_class(suffix, sig, ret)
+      attach_gsl_method(:gsl_class_method, suffix, sig, ret)
+    end
+
+    private
+
+    def attach_gsl_method(location, suffix, sig, ret)
+      func = gsl_function(suffix)
+      meth = local_method(suffix)
+
+      GSL.attach_function(func, sig, ret)
+      local_class.send(location, meth, func)
+    end
+
+    def gsl_function(suffix)
+      ['gsl', prefix.to_s, suffix.to_s].join('_').to_sym
+    end
+
+    def local_method(suffix)
+      ('_' + suffix.to_s).to_sym
+    end
+  end
+
+  class TypedAttacher < Attacher
+    attr_reader :type
+
+    def initialize(prefix, type, local_class)
+      super(prefix, local_class)
+      @type = type
+    end
+
+    private
+
+    def typeconv(atype)
+      if atype == :type
+        type
+      else
+        atype
+      end
+    end
+
+    def attach_gsl_method(location, suffix, sig, ret)
+      newsig = sig.map{|t| typeconv(t)}
+      newret = typeconv(ret)
+      super(location, suffix, newsig, newret)
+    end
+
+    def gsl_function(suffix)
+      if type == :double
+        super(suffix)
+      else
+        ['gsl', prefix.to_s, type.to_s, suffix.to_s].join('_').to_sym
+      end
     end
   end
 
 end
+
+

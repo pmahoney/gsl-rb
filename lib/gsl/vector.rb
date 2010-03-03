@@ -2,47 +2,6 @@ require 'gsl/gsl'
 
 module GSL
 
-  attach_prefix_type_function(:gsl_vector) do
-    attach :alloc, [:size_t], :pointer
-    attach :calloc, [:size_t], :pointer
-    attach :free, [:uintptr_t], :void
-
-    attach :get, [:pointer, :size_t], :type
-    attach :set, [:pointer, :size_t, :type], :void
-    attach :ptr, [:pointer, :size_t], :pointer
-    attach :const_ptr, [:pointer, :size_t], :pointer
-
-    attach :set_all, [:pointer, :type], :void
-    attach :set_zero, [:pointer], :void
-    attach :set_basis, [:pointer, :size_t], :status
-
-    attach :memcpy, [:pointer, :pointer], :status
-    attach :swap, [:pointer, :pointer], :status
-
-    attach :swap_elements, [:pointer, :size_t, :size_t], :status
-    attach :reverse, [:pointer], :status
-
-    attach :add, [:pointer, :pointer], :status
-    attach :sub, [:pointer, :pointer], :status
-    attach :mul, [:pointer, :pointer], :status
-    attach :div, [:pointer, :pointer], :status
-    attach :scale, [:pointer, :double], :status
-    attach :add_constant, [:pointer, :double], :status
-
-    # The following methods are not supported for complext types
-    attach_reals :max, [:pointer], :type
-    attach_reals :min, [:pointer], :type
-    attach_reals :minmax, [:pointer, :pointer, :pointer], :void
-    attach_reals :max_index, [:pointer], :size_t
-    attach_reals :min_index, [:pointer], :size_t
-    attach_reals :minmax_index, [:pointer, :pointer, :pointer], :void
-
-    attach :isnull, [:pointer], :int
-    attach :ispos, [:pointer], :int
-    attach :isneg, [:pointer], :int
-    # attach :isnonneg, [:pointer], :int  # function not on darwin?
-  end
-
   class VectorStruct < FFI::Struct
     layout(:size, :size_t,
            :stride, :size_t,
@@ -56,6 +15,45 @@ module GSL
 
     attr_reader :size
 
+    METHOD_FREE ||= [:free, [:uintptr_t], :void]
+    METHODS_STANDARD ||= [[:alloc, [:size_t], :pointer],
+                          [:calloc, [:size_t], :pointer],
+
+                          [:get, [:pointer, :size_t], :type],
+                          [:set, [:pointer, :size_t, :type], :void],
+
+                          [:ptr, [:pointer, :size_t], :pointer],
+                          [:const_ptr, [:pointer, :size_t], :pointer],
+
+                          [:set_all, [:pointer, :type], :void],
+                          [:set_zero, [:pointer], :void],
+                          [:set_basis, [:pointer, :size_t], :status],
+
+                          [:memcpy, [:pointer, :pointer], :status],
+                          [:swap, [:pointer, :pointer], :status],
+                          [:swap_elements, [:pointer, :size_t, :size_t], :status],
+                          [:reverse, [:pointer], :status],
+
+                          [:add, [:pointer, :pointer], :status],
+                          [:sub, [:pointer, :pointer], :status],
+                          [:mul, [:pointer, :pointer], :status],
+                          [:div, [:pointer, :pointer], :status],
+                          [:scale, [:pointer, :double], :status],
+                          [:add_constant, [:pointer, :double], :status]]
+
+    # The following methods are not supported for complex types
+    METHODS_REAL ||= [[:max, [:pointer], :type],
+                      [:min, [:pointer], :type],
+                      [:minmax, [:pointer, :pointer, :pointer], :void],
+                      [:max_index, [:pointer], :size_t],
+                      [:min_index, [:pointer], :size_t],
+                      [:minmax_index, [:pointer, :pointer, :pointer], :void],
+
+                      [:isnull, [:pointer], :int],
+                      [:ispos, [:pointer], :int],
+                      [:isneg, [:pointer], :int]]
+                      # [:isnonneg, [:pointer], :int]  # function not on darwin?
+
     class << self
       # Convenience method that simply calls
       # GSL::Vector::Double.new().
@@ -65,21 +63,7 @@ module GSL
 
       def included(mod)
         mod.extend(GSL::Obj::Support)
-        mod.prefix :gsl_vector
-        mod.foreign_method(:alloc,
-                           :calloc,
-                           :free,
-                           :get,
-                           :set,
-                           :set_all,
-                           :set_zero,
-                           :memcpy,
-                           :add,
-                           :sub,
-                           :mul,
-                           :div,
-                           :scale,
-                           :add_constant)
+        mod.extend(GSL::Obj::TypedSupport)
       end
     end
 
@@ -230,21 +214,32 @@ module GSL
 
     class Double
       include Vector
-      define_foreign_methods :double
 
-      def self._free(ptr)
-        GSL.gsl_vector_free(ptr)
+      gsl_methods(:vector, :double) do
+        GSL::Vector::METHODS_STANDARD.each {|m| attach(*m)}
+        GSL::Vector::METHODS_REAL.each {|m| attach(*m)}
+        attach_class(*GSL::Vector::METHOD_FREE)
       end
     end
 
     class Int
       include Vector
-      define_foreign_methods :int
+
+      gsl_methods(:vector, :int) do
+        GSL::Vector::METHODS_STANDARD.each {|m| attach(*m)}
+        GSL::Vector::METHODS_REAL.each {|m| attach(*m)}
+        attach_class(*GSL::Vector::METHOD_FREE)
+      end
     end
 
     class Float
       include Vector
-      define_foreign_methods :float
+
+      gsl_methods(:vector, :float) do
+        GSL::Vector::METHODS_STANDARD.each {|m| attach(*m)}
+        GSL::Vector::METHODS_REAL.each {|m| attach(*m)}
+        attach_class(*GSL::Vector::METHOD_FREE)
+      end
     end
 
   end

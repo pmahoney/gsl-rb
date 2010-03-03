@@ -2,52 +2,6 @@ require 'gsl/gsl'
 
 module GSL
 
-  attach_prefix_type_function(:gsl_matrix) do
-    attach :alloc, [:size_t, :size_t], :pointer
-    attach :calloc, [:size_t, :size_t], :pointer
-    attach :free, [:uintptr_t], :void
-
-    attach :get, [:pointer, :size_t, :size_t], :type
-    attach :set, [:pointer, :size_t, :size_t, :type], :void
-    attach :ptr, [:pointer, :size_t, :size_t], :pointer
-    attach :const_ptr, [:pointer, :size_t, :size_t], :pointer
-
-    attach :set_all, [:pointer, :type], :void
-    attach :set_zero, [:pointer], :void
-    attach :set_identity, [:pointer], :void
-
-    # TODO?: read/write to files
-    # attach :fwrite, [:pointer, :pointer], :int
-    # attach :fread, [:pointer, :pointer], :int
-    # attach :fprintf, [:pointer, :pointer, :string], :int
-    # attach :fscanf, [:pointer, :pointer]
-
-    # TODO: views
-
-    # TODO: row and column views
-
-    attach :memcpy, [:pointer, :pointer], :int
-    attach :swap, [:pointer, :pointer], :int
-
-    attach :get_row, [:pointer, :pointer, :size_t], :int
-    attach :get_col, [:pointer, :pointer, :size_t], :int
-    attach :set_row, [:pointer, :size_t, :pointer], :int
-    attach :set_col, [:pointer, :size_t, :pointer], :int
-
-    attach :swap_rows, [:pointer, :size_t, :size_t], :int
-    attach :swap_columns, [:pointer, :size_t, :size_t], :int
-    attach :swap_rowcol, [:pointer, :size_t, :size_t], :int
-    attach :transpose_memcpy, [:pointer, :pointer], :int
-    attach :transpose, [:pointer], :int
-
-    attach :add, [:pointer, :pointer], :int
-    attach :sub, [:pointer, :pointer], :int
-    attach :mul_elements, [:pointer, :pointer], :int
-    attach :div_elements, [:pointer, :pointer], :int
-    attach :scale, [:pointer, :pointer], :int
-    attach :add_constant, [:pointer, :pointer], :int
-  end
-
   class MatrixStruct < FFI::Struct
     layout(:rows, :size_t,
            :cols, :size_t,
@@ -62,6 +16,52 @@ module GSL
 
     attr_reader :size
 
+    METHOD_FREE ||= [:free, [:uintptr_t], :void]
+
+    METHODS_STANDARD ||=
+      [[:alloc, [:size_t, :size_t], :pointer],
+       [:calloc, [:size_t, :size_t], :pointer],
+
+       [:get, [:pointer, :size_t, :size_t], :type],
+       [:set, [:pointer, :size_t, :size_t, :type], :void],
+       [:ptr, [:pointer, :size_t, :size_t], :pointer],
+       [:const_ptr, [:pointer, :size_t, :size_t], :pointer],
+
+       [:set_all, [:pointer, :type], :void],
+       [:set_zero, [:pointer], :void],
+       [:set_identity, [:pointer], :void],
+
+       # TODO?: read/write to files
+       # [:fwrite, [:pointer, :pointer], :int],
+       # [:fread, [:pointer, :pointer], :int],
+       # [:fprintf, [:pointer, :pointer, :string], :int],
+       # [:fscanf, [:pointer, :pointer]],
+
+       # TODO: views
+
+       # TODO: row and column views
+
+       [:memcpy, [:pointer, :pointer], :int],
+       [:swap, [:pointer, :pointer], :int],
+
+       [:get_row, [:pointer, :pointer, :size_t], :int],
+       [:get_col, [:pointer, :pointer, :size_t], :int],
+       [:set_row, [:pointer, :size_t, :pointer], :int],
+       [:set_col, [:pointer, :size_t, :pointer], :int],
+
+       [:swap_rows, [:pointer, :size_t, :size_t], :int],
+       [:swap_columns, [:pointer, :size_t, :size_t], :int],
+       [:swap_rowcol, [:pointer, :size_t, :size_t], :int],
+       [:transpose_memcpy, [:pointer, :pointer], :int],
+       [:transpose, [:pointer], :int],
+
+       [:add, [:pointer, :pointer], :int],
+       [:sub, [:pointer, :pointer], :int],
+       [:mul_elements, [:pointer, :pointer], :int],
+       [:div_elements, [:pointer, :pointer], :int],
+       [:scale, [:pointer, :pointer], :int],
+       [:add_constant, [:pointer, :pointer], :int]]
+
     class << self
       # Convenience method that simply calls
       # GSL::Vector::Double.new().
@@ -71,34 +71,7 @@ module GSL
 
       def included(mod)
         mod.extend(GSL::Obj::Support)
-        mod.prefix :gsl_matrix
-        mod.foreign_method(:alloc,
-                           :calloc,
-                           :free,
-                           :get,
-                           :set,
-                           :ptr,
-                           :const_ptr,
-                           :set_all,
-                           :set_zero,
-                           :set_identity,
-                           :memcpy,
-                           :swap,
-                           :get_row,
-                           :get_col,
-                           :set_row,
-                           :set_col,
-                           :swap_rows,
-                           :swap_columns,
-                           :swap_rowcol,
-                           :transpose_memcpy,
-                           :transpose,
-                           :add,
-                           :sub,
-                           :mul_elements,
-                           :div_elements,
-                           :scale,
-                           :add_constant)
+        mod.extend(GSL::Obj::TypedSupport)
       end
     end
 
@@ -272,16 +245,20 @@ module GSL
 
     class Double
       include Matrix
-      define_foreign_methods :double
 
-      def self._free(ptr)
-        GSL.gsl_matrix_free(ptr)
+      gsl_methods(:matrix, :double) do
+        GSL::Matrix::METHODS_STANDARD.each {|m| attach(*m)}
+        attach_class(*GSL::Matrix::METHOD_FREE)
       end
     end
 
     class Float
       include Matrix
-      define_foreign_methods :float
+
+      gsl_methods(:matrix, :float) do
+        GSL::Matrix::METHODS_STANDARD.each {|m| attach(*m)}
+        attach_class(*GSL::Matrix::METHOD_FREE)
+      end
     end
 
   end
