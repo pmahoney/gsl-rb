@@ -4,6 +4,8 @@ module GSL
   begin
     ffi_lib 'libgslcblas', 'libgsl'
   rescue LoadError
+    # My ubuntu karmic doesn't have libgsl.so, so FFI fails; must
+    # explicitly try libgsl.so.0.
     ffi_lib 'libgslcblas.so.0', 'libgsl.so.0'
   end
 
