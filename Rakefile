@@ -1,41 +1,15 @@
 # -*- ruby -*-
 
 require 'rake'
-require 'rake/gempackagetask'
-require 'rake/rdoctask'
-require 'spec/rake/spectask'
+require 'rubygems/package_task'
+require 'rdoc/task'
+#require 'spec/rake/spectask'
 require 'fileutils'
 include FileUtils
 
-class String
-  def first_line
-    first = ''
-    each_line { |line| first = line; break }
-    first
-  end
+def gemspec
+  @gemspec ||= eval(File.read('.gemspec'), binding, '.gemspec')
 end
-
-NAME = "gsl-rb"
-VERS = "0.1.2"
-PKG = "#{NAME}-#{VERS}"
-RDOC_OPTS = ['--quiet', '--title', 'GSL for Ruby via FFI', '--main', 'README', '--inline-source']
-PKG_FILES = FileList['Rakefile', 'lib/gsl.rb', 'lib/**/*.rb', 'spec/**/*']
-GEMSPEC =
-  Gem::Specification.new do |s|
-    s.name = NAME
-    s.version = VERS
-    s.platform = Gem::Platform::RUBY
-    s.has_rdoc = true
-    s.add_dependency('ffi', '>= 0.6.2')
-    s.rdoc_options += RDOC_OPTS
-    s.extra_rdoc_files = ["README", "ChangeLog", "COPYING"]
-    s.summary = 'Math functions and vector and matrix manipulation'
-    s.description = s.summary
-    s.author = 'Patrick Mahoney'
-    s.email = 'pat@polycrystal.org'
-    s.homepage = 'http://gsl-rb.rubyforge.org/'
-    s.files = PKG_FILES
-  end
 
 desc "Run the tests"
 task :default => [:test]
@@ -45,35 +19,31 @@ task :package
 
 task :test => [:spec]
 
-desc "Runs all tests"
-Spec::Rake::SpecTask.new do |t|
-  t.spec_files = FileList['spec/**/*spec.rb']
-end
+# desc "Runs all tests"
+# Spec::Rake::SpecTask.new do |t|
+#   t.spec_files = FileList['spec/**/*spec.rb']
+# end
 
 desc "Compile documentation with RDoc"
 task :doc => [:rdoc]
 
 Rake::RDocTask.new do |rdoc|
-    rdoc.rdoc_dir = 'doc/'
-    rdoc.options += RDOC_OPTS
-    rdoc.main = "README"
-    rdoc.rdoc_files.add ['README', 'ChangeLog', 'COPYING', 'lib/**/*.rb']
+  rdoc.rdoc_dir = 'doc/'
+  rdoc.options += gemspec.rdoc_options
+  rdoc.main = "README.rdoc"
+  rdoc.rdoc_files.add ['README.rdoc', 'COPYING', 'lib/**/*.rb']
 end
 
-Rake::GemPackageTask.new(GEMSPEC) do |p|
-    p.need_tar = true
-    p.gem_spec = GEMSPEC
+Gem::PackageTask.new(gemspec) do |p|
+  p.need_tar = true
+  p.gem_spec = gemspec
 end
 
-task "lib" do
-  directory "lib"
-end
-
-task :install do
-  sh %{rake package}
-  sh %{sudo gem install pkg/#{NAME}-#{VERS}}
+desc 'Install the current version of the gem locally'
+task :install => [:package] do
+  sh %{gem install pkg/#{gemspec.name}-#{gemspec.version}}
 end
 
 task :uninstall do
-  sh %{sudo gem uninstall #{NAME}}
+  sh %{gem uninstall #{gemspec.name} -v #{gemspec.version}}
 end
