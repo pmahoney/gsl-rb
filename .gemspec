@@ -1,7 +1,7 @@
 # -*- encoding: utf-8 -*-
 require 'rubygems' unless Object.const_defined?(:Gem)
 $:.push File.dirname(__FILE__) + "/lib"
-require 'gsl'
+require 'gsl/version'
  
 Gem::Specification.new do |s|
   s.name        = "gsl-rb"
