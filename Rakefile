@@ -3,28 +3,21 @@
 require 'rake'
 require 'rubygems/package_task'
 require 'rdoc/task'
-#require 'spec/rake/spectask'
-require 'fileutils'
-include FileUtils
+require 'rake/testtask'
 
 def gemspec
   @gemspec ||= eval(File.read('.gemspec'), binding, '.gemspec')
 end
 
-desc "Run the tests"
+desc 'Run the tests'
 task :default => [:test]
 
-desc "Generates tar.gz and gem packages"
-task :package
+Rake::TestTask.new do |t|
+  t.pattern = 'spec/**/*_spec.rb'
+  t.libs.push 'spec'
+end
 
-task :test => [:spec]
-
-# desc "Runs all tests"
-# Spec::Rake::SpecTask.new do |t|
-#   t.spec_files = FileList['spec/**/*spec.rb']
-# end
-
-desc "Compile documentation with RDoc"
+desc 'Compile documentation with RDoc'
 task :doc => [:rdoc]
 
 Rake::RDocTask.new do |rdoc|

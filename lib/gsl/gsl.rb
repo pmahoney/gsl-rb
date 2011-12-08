@@ -1,12 +1,12 @@
 module GSL
-
   extend FFI::Library
-  begin
-    ffi_lib 'libgslcblas', 'libgsl'
-  rescue LoadError
-    # My ubuntu karmic doesn't have libgsl.so, so FFI fails; must
-    # explicitly try libgsl.so.0.
-    ffi_lib 'libgslcblas.so.0', 'libgsl.so.0'
+
+  ffi_lib 'm', 'gslcblas', 'gsl'
+
+  def self.match(regex, receiver)
+    puts "self is #{self}"
+    @routes ||= []
+    @routes << [regex, receiver]
   end
 
   class << self

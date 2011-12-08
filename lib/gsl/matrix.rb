@@ -1,266 +1,163 @@
 require 'gsl/gsl'
 
 module GSL
+  class FunctionSpec
+    attr_reader :gsl_name, :local_name
 
-  class MatrixStruct < FFI::Struct
-    layout(:rows, :size_t,
-           :cols, :size_t,
-           :tda, :size_t,
-           :data, :pointer,
-           :block, :pointer,
-           :owner, :int)
-  end
-
-  module Matrix
-    include GSL::Obj
-
-    attr_reader :size
-
-    METHOD_FREE ||= [:free, [:uintptr_t], :void]
-
-    METHODS_STANDARD ||=
-      [[:alloc, [:size_t, :size_t], :pointer],
-       [:calloc, [:size_t, :size_t], :pointer],
-
-       [:get, [:pointer, :size_t, :size_t], :type],
-       [:set, [:pointer, :size_t, :size_t, :type], :void],
-       [:ptr, [:pointer, :size_t, :size_t], :pointer],
-       [:const_ptr, [:pointer, :size_t, :size_t], :pointer],
-
-       [:set_all, [:pointer, :type], :void],
-       [:set_zero, [:pointer], :void],
-       [:set_identity, [:pointer], :void],
-
-       # TODO?: read/write to files
-       # [:fwrite, [:pointer, :pointer], :int],
-       # [:fread, [:pointer, :pointer], :int],
-       # [:fprintf, [:pointer, :pointer, :string], :int],
-       # [:fscanf, [:pointer, :pointer]],
-
-       # TODO: views
-
-       # TODO: row and column views
-
-       [:memcpy, [:pointer, :pointer], :int],
-       [:swap, [:pointer, :pointer], :int],
-
-       [:get_row, [:pointer, :pointer, :size_t], :int],
-       [:get_col, [:pointer, :pointer, :size_t], :int],
-       [:set_row, [:pointer, :size_t, :pointer], :int],
-       [:set_col, [:pointer, :size_t, :pointer], :int],
-
-       [:swap_rows, [:pointer, :size_t, :size_t], :int],
-       [:swap_columns, [:pointer, :size_t, :size_t], :int],
-       [:swap_rowcol, [:pointer, :size_t, :size_t], :int],
-       [:transpose_memcpy, [:pointer, :pointer], :int],
-       [:transpose, [:pointer], :int],
-
-       [:add, [:pointer, :pointer], :int],
-       [:sub, [:pointer, :pointer], :int],
-       [:mul_elements, [:pointer, :pointer], :int],
-       [:div_elements, [:pointer, :pointer], :int],
-       [:scale, [:pointer, :pointer], :int],
-       [:add_constant, [:pointer, :pointer], :int]]
-
-    class << self
-      # Convenience method that simply calls
-      # GSL::Vector::Double.new().
-      def new(*args)
-        GSL::Matrix::Double.new(*args)
-      end
-
-      def included(mod)
-        mod.extend(GSL::Obj::Support)
-        mod.extend(GSL::Obj::TypedSupport)
-      end
+    def initialize(local_name, gsl_name)
+      @local_name = local_name
+      @gsl_name = gsl_name
     end
 
-    # Create a new matrix.
-    def initialize(*args)
-      if args.size == 2 # no array initializer
-        rows = args[0]
-        cols = args[1]
-      elsif args.size == 3 # flat array initializer
-        rows = args[0]
-        cols = args[1]
-        ary = args[2]
-      elsif args.size == 1 # nested list (by rows) initializer
-        rows = args[0].size
-        cols = args[0][0].size
-        ary = args[0]
+    # getter and setter combined
+    def signature(*sig)
+      if sig.size > 0
+        @signature = sig
       else
-        raise ArgumentError.new("wrong args: #{args.size} for 1, 2, or 3")
-      end
-
-      @gsl = MatrixStruct.new(alloc(rows, cols))
-
-      @size = [@gsl[:rows], @gsl[:cols]]
-
-      if (args.size == 3) # flat array of value
-        row = 0
-        col = 0
-        ary.each do |v|
-          self[row, col] = v
-          col += 1
-          if (col == cols)
-            col = 0
-            row += 1
-          end
-        end
-      elsif (args.size == 1) # nested array of rows of values
-        row = 0
-        ary.each do |rowdata|
-          col = 0
-          rowdata.each do |v|
-            self[row, col] = v
-            col += 1
-          end
-          row += 1
-        end
+        @signature
       end
     end
-
-    # Create a copy of the matrix.
-    def dup
-      d = super()
-      d.send(:initialize, rows, cols)
-      _memcpy(d.gsl, @gsl)
-      d
-    end
-
-    # Number or rows.
-    def rows()
-      size[0]
-    end
-
-    # Number of columns
-    def cols()
-      size[1]
-    end
-
-    def each_index
-      rows.times do |row|
-        cols.times do |col|
-          yield(row, col)
-        end
-      end
-    end
-
-    def each_index_by_cols
-      cols.times do |col|
-        rows.times do |row|
-          yield(row, col)
-        end
-      end
-    end
-
-    # Return a flat Ruby array containing the values ordered by rows.
-    def to_ary
-      ary = Array.new
-      each_index do |row, col|
-        ary << self[row,col]
-      end
-      ary
-    end
-
-    # Return a nested Ruby array by rows.
-    def to_ary_rows
-      ary = Array.new
-      rowa = Array.new
-      rowi = 0
-      each_index do |row, col|
-        if rowi != row
-          rowi = row
-          ary << rowa
-          rowa = Array.new
-        end
-
-        rowa << self[row, col]
-      end
-
-      ary << rowa
-      ary
-    end
-
-    # Return a nested Ruby array by rows.
-    def to_ary_cols
-      ary = Array.new
-      cola = Array.new
-      coli = 0
-      each_index_by_cols do |row, col|
-        if coli != col
-          coli = col
-          ary << cola
-          cola = Array.new
-        end
-
-        cola << self[row, col]
-      end
-
-      ary << cola
-      ary
-    end
-
-    # Get the value at +row+,+col+
-    def [] (row, col)
-      _get(gsl, row, col)
-    end
-
-    # Set the value at +row+,+col+ to +val+.
-    def []= (row, col, val)
-      _set(gsl, row, col, val)
-    end
-
-    def set_all!(val)
-      _set_all(gsl)
-      self
-    end
-
-    def set_zero!
-      _set_zero(gsl)
-      self
-    end
-
-    def set_identity!
-      _set_identity(gsl)
-      self
-    end
-
-    # Compute the transpose of the matrix.  Note that the BLAS
-    # multiplaction methods provide the opportunity to transpose
-    # before a matrix multiplication which may be more efficient if
-    # the transposed matrix is only needed once.
-    def transpose
-      result = self.class.new(cols, rows)
-      _transpose_memcpy(result.gsl, self.gsl)
-      result
-    end
-
-    # Transpose in place, modifying +self+.
-    def transpose!
-      _transpose(self.gsl)
-      @size = [@gsl[:rows], @gsl[:cols]]
-      self
-    end
-
-    class Double
-      include Matrix
-
-      gsl_methods(:matrix, :double) do
-        GSL::Matrix::METHODS_STANDARD.each {|m| attach(*m)}
-        attach_class(*GSL::Matrix::METHOD_FREE)
-      end
-    end
-
-    class Float
-      include Matrix
-
-      gsl_methods(:matrix, :float) do
-        GSL::Matrix::METHODS_STANDARD.each {|m| attach(*m)}
-        attach_class(*GSL::Matrix::METHOD_FREE)
-      end
-    end
-
   end
 
+  module Helpers
+    def underscore(camel_case_word)
+      camel_case_word.to_s.gsub(/::/, '_').
+#        gsub(/([A-Z]+)([A-Z][a-z])/,'\1_\2').
+        gsub(/([a-z\d])([A-Z])/,'\1_\2').
+        tr("-", "_").
+        downcase
+    end
+
+    def make_finalizer(addr)
+      proc { free(FFI::Pointer.new(addr)) }
+    end
+
+    # When inside GSL::Matrix::Float, when name is 'alloc',
+    # returns 'gsl_matrix_float_alloc'.
+    def gsl_name(name)
+      underscore(self.to_s + '_' + name)
+    end
+
+    # When inside GSL::Matrix::Float,returns `[:gsl_matrix_float, :float]`
+    def gsl_types
+      scalar_type = case t = underscore(self.to_s.split('::')[-1]).to_sym
+                    when :char, :complex, :float, :int, :long_double,
+                      :long, :short, :uchar, :uint, :ulong, :ushort
+                      t
+                    else
+                      :double
+                    end
+      [underscore(self).to_sym, scalar_type]
+    end
+
+    def attach_gsl_function(*local_names)
+      local_names.each do |local_name|
+        f = FunctionSpec.new(local_name, gsl_name(local_name))
+        # block must set f.signature, f.type
+        yield f
+        GSL.attach_function(f.gsl_name, *f.signature)
+      end
+    end
+  end
+
+  module MatrixFunctions
+    def self.included(mod)
+      mod.module_eval do
+        extend Helpers
+
+        layout(:rows, :size_t,
+               :cols, :size_t,
+               :tda, :size_t,
+               :data, :pointer,
+               :block, :pointer,
+               :owner, :int)
+
+        matrix_type, scalar_type = gsl_types
+        GSL.typedef :pointer, matrix_type
+
+        # Note: within instance_eval, def creates class methods in mod
+
+        attach_gsl_function('alloc', 'calloc') do |f|
+          f.signature [:size_t, :size_t], matrix_type
+          instance_eval %Q{
+            def #{f.local_name}(rows, cols)
+              GSL.#{f.gsl_name}(rows, cols)
+            end
+          }
+        end
+
+        attach_gsl_function('free') do |f|
+          f.signature [matrix_type], :void
+          instance_eval %Q{
+            def #{f.local_name}(ptr)
+              GSL.#{f.gsl_name}(ptr)
+            end
+          }
+        end
+
+        # Note: within module_eval, def creates instance methods in mod
+
+        attach_gsl_function('get') do |f|
+          f.signature [matrix_type, :size_t, :size_t], :void
+          module_eval %Q{
+            def #{f.local_name}(i, j)
+              GSL.#{f.gsl_name}(self, i, j)
+            end
+          }
+        end
+
+        attach_gsl_function('set') do |f|
+          f.signature [matrix_type, :size_t, :size_t, scalar_type], :void
+          module_eval %Q{
+            def #{f.local_name}!(i, j, x)
+              GSL.#{f.gsl_name}(self, i, j, x)
+            end
+          }
+        end
+
+        attach_gsl_function('add', 'sub', 'mul_elements', 'div_elements') do |f|
+          f.signature [matrix_type, matrix_type], :void
+          module_eval %Q{
+            def #{f.local_name}!(other)
+              GSL.#{f.gsl_name}(self, other)
+            end
+          }
+        end
+
+        attach_gsl_function('scale', 'add_constant') do |f|
+          f.signature [matrix_type, scalar_type], :void
+          module_eval %Q{
+            def #{f.local_name}!(arg)
+              GSL.#{f.gsl_name}(self, arg)
+            end
+          }
+        end
+      end
+    end
+
+    def initialize(rows, cols, opts={})
+      if opts[:zero]
+        super(self.class.calloc(rows, cols))
+      else
+        super(self.class.alloc(rows, cols))
+      end
+
+      fin = self.class.make_finalizer(to_ptr.address)
+      ObjectSpace.define_finalizer(self, fin)
+    end
+
+    # Generally this should never be called.  The memory is freed in
+    # an object finalizer.
+    def free
+      self.class.free(self)
+    end
+
+    def addblargh(other)
+      self.class.add(self, other)
+    end
+  end
+
+  class Matrix < FFI::Struct
+    include MatrixFunctions
+  end
 end
