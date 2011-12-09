@@ -50,12 +50,9 @@ module GSL
       [underscore(self).to_sym, scalar_type]
     end
 
-    def attach_gsl_function(*local_names)
+    def each_with_gsl_name(*local_names)
       local_names.each do |local_name|
-        f = FunctionSpec.new(local_name, gsl_name(local_name))
-        # block must set f.signature, f.type
-        yield f
-        GSL.attach_function(f.gsl_name, *f.signature)
+        yield(local_name, gsl_name(local_name))
       end
     end
 
@@ -64,11 +61,13 @@ module GSL
     end
 
     # Create a string that defines a method named
-    # `f.local_name` that simply calls GSL.`f.gsl_name`.
+    # `local_name` that simply calls GSL.`gsl_name`.
     #
-    # @param [FunctionSpec] f
+    # @param [String|Symbol] local_name
+    # @param [String|Symbol] gsl_name
     # @param [Array] non_self_args array of string arg names
-    def upcall(f, non_self_args = [], opts = {})
+    # @param [Hash] opts
+    def upcall(local_name, gsl_name, non_self_args = [], opts = {})
       decl_args = argstring(non_self_args)
       body_args = unless opts[:no_self]
                     argstring(['self'] + non_self_args)
@@ -76,38 +75,36 @@ module GSL
                     decl_args
                   end
 
-      local_name = if opts[:destructive]
-                     f.local_name + '!'
-                   else
-                     f.local_name
-                   end
+      local_name2 = if opts[:destructive]
+                      local_name + '!'
+                    else
+                      local_name
+                    end
 
-      gsl_name = "GSL.#{f.gsl_name}"
-      
       %Q{
-        def #{local_name}(#{decl_args})
-          #{gsl_name}(#{body_args})
+        def #{local_name2}(#{decl_args})
+          GSL.#{gsl_name}(#{body_args})
         end
       }
     end
 
     # Define a method at the instance level of self (a class method)
     # that simply calls a GSL function.
-    def define_instance_upcall(f, args = [])
-      instance_eval upcall(f, args, :no_self => true)
+    def define_instance_upcall(local_name, gsl_name, args = [])
+      instance_eval upcall(local_name, gsl_name, args, :no_self => true)
     end
 
     # Define a method at the module level of self (would become an
     # instance method) that simply calls a GSL function.
-    def define_module_upcall(f, args = [])
-      module_eval upcall(f, args)
+    def define_module_upcall(local_name, gsl_name, args = [])
+      module_eval upcall(local_name, gsl_name, args)
     end
 
     # Define a destructive method ('!' is appended to the local method
     # name) at the module level of self (would become an instance
     # method) that simply calls a GSL function.
-    def define_module_upcall!(f, args = [])
-      module_eval upcall(f, args, :destructive => true)
+    def define_module_upcall!(local_name, gsl_name, args = [])
+      module_eval upcall(local_name, gsl_name, args, :destructive => true)
     end
   end
 
@@ -126,62 +123,48 @@ module GSL
         matrix_type, scalar_type = gsl_types
         GSL.typedef :pointer, matrix_type
 
-        # Note: within instance_eval, def creates class methods in mod
+        # Note:
+        # - within instance_eval, def creates class methods in mod
+        # - within module_eval, def creates instance methods in mod
+        #
+        # We need free as both an instance and class method (for use by the finalizer)
 
-        attach_gsl_function('alloc', 'calloc') do |f|
-          f.signature [:size_t, :size_t], matrix_type
-          #instance_eval upcall(f, %w[rows cols], :no_self => true)
-          define_instance_upcall(f, %w[rows cols])
+        # Allocating matrices
+
+        each_with_gsl_name('alloc', 'calloc') do |local_name, gsl_name|
+          GSL.attach_function(gsl_name, [:size_t, :size_t], matrix_type)
+          define_instance_upcall(local_name, gsl_name, %w[rows cols])
         end
 
-        attach_gsl_function('free') do |f|
-          f.signature [matrix_type], :void
-          define_instance_upcall(f, %w[ptr])
-        end
-
-        # Note: within module_eval, def creates instance methods in mod
-
-        # Free
-
-        attach_gsl_function('free') do |f|
-          f.signature [matrix_type], :void
-          define_module_upcall(f)
+        each_with_gsl_name('free') do |local_name, gsl_name|
+          GSL.attach_function(gsl_name, [matrix_type], :void)
+          define_instance_upcall(local_name, gsl_name, %w[ptr])
+          define_module_upcall(local_name, gsl_name)
         end
 
         # Accessing Matrix Elements
 
-        attach_gsl_function('get') do |f|
-          f.signature [matrix_type, :size_t, :size_t], :void
-          define_module_upcall(f, %w[i j])
+        each_with_gsl_name('get') do |local_name, gsl_name|
+          GSL.attach_function(gsl_name, [matrix_type, :size_t, :size_t], :void)
+          define_module_upcall(local_name, gsl_name, %w[i j])
         end
 
-        attach_gsl_function('set') do |f|
-          f.signature [matrix_type, :size_t, :size_t, scalar_type], :void
-          define_module_upcall!(f, %w[i j x])
+        each_with_gsl_name('set') do |local_name, gsl_name|
+          GSL.attach_function(gsl_name, [matrix_type, :size_t, :size_t, scalar_type], :void)
+          define_module_upcall!(local_name, gsl_name, %w[i j x])
         end
 
         # Matrix Operations
 
-        attach_gsl_function('add', 'sub', 'mul_elements', 'div_elements') do |f|
-          f.signature [matrix_type, matrix_type], :void
-          define_module_upcall!(f, %w[other])
+        each_with_gsl_name('add', 'sub', 'mul_elements', 'div_elements') do |local_name, gsl_name|
+          GSL.attach_function(gsl_name, [matrix_type, matrix_type], :void)
+          define_module_upcall!(local_name, gsl_name, %w[other])
         end
 
-        attach_gsl_function('scale', 'add_constant') do |f|
-          f.signature [matrix_type, scalar_type], :void
-          define_module_upcall!(f, %w[arg])
+        each_with_gsl_name('scale', 'add_constant') do |local_name, gsl_name|
+          GSL.attach_function(gsl_name, [matrix_type, scalar_type], :void)
+          define_module_upcall!(local_name, gsl_name, %w[arg])
         end
-
-        # Finding maximum and minimum elements of matrices
-
-        # attach_gsl_function('max', 'min') do |f|
-        #   f.signature [matrix_type], scalar_type
-        #   module_eval %Q{
-        #     def #{f.local_name}
-        #       GSL.#{f.gsl_name}(self)
-        #     end
-        #   }
-        # end
       end
     end
 
@@ -194,6 +177,22 @@ module GSL
 
       fin = self.class.make_finalizer(to_ptr.address)
       ObjectSpace.define_finalizer(self, fin)
+    end
+  end
+
+  # Functions only defined on real matrices (as opposed to complex).
+  module MatrixFunctionsReal
+    def included(mod)
+      mod.module_eval do
+        matrix_type, scalar_type = gsl_types
+
+        # Finding maximum and minimum elements of matrices
+
+        each_with_gsl_name('max', 'min') do |local_name, gsl_name|
+          GSL.attach_function(gsl_name, [matrix_type], scalar_type)
+          define_module_upcall(local_name, gsl_name)
+        end
+      end
     end
   end
 
