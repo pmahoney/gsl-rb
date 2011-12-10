@@ -39,7 +39,7 @@ module GSL
   end
 
   def self.status_to_err_class(status)
-    case GSL.enum_value(:status, status)
+    case GSL::Status[status]
     when :success then nil
     when :failure then Error
     when :continue then Continue
@@ -83,13 +83,13 @@ module GSL
   callback :gsl_error_handler_t, [:string, :string, :int, :int], :void
   attach_function(:gsl_set_error_handler,
                   [:gsl_error_handler_t], :pointer)
-
+  
   ERROR_HANDLER = proc do |reason, file, line, errno|
     klass = GSL.status_to_err_class(errno) || Error
     raise klass.new("%s (%s:%d)" % [reason, file, line])
   end
   GSL.gsl_set_error_handler(ERROR_HANDLER)
-
+  
   attach_function :gsl_strerror, [:int], :string
 
   def self.strerror(status)

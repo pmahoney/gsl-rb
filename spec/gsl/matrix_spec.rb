@@ -62,9 +62,9 @@ class MatrixSpec < MiniTest::Spec
   end
 
   it 'raises error on zero size' do
-    # lambda {klass.new(0,1)}.must_raise(Exception)
-    # lambda {klass.new(1,0)}.must_raise(Exception)
-    # lambda {klass.new(0,0)}.must_raise(Exception)
+    lambda {klass.new(0,1)}.must_raise(GSL::Error::Invalid)
+    lambda {klass.new(1,0)}.must_raise(GSL::Error::Invalid)
+    lambda {klass.new(0,0)}.must_raise(GSL::Error::Invalid)
   end
 end
 
