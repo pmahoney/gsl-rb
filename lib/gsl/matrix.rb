@@ -169,10 +169,22 @@ module GSL
           define_module_upcall
         end
 
+        # Initializing Matrix Elements
+
+        each_local_name('set_zero', 'set_identity') do
+          attach_gsl_function([matrix_type], :void)
+          define_module_upcall!
+        end
+
+        each_local_name('set_all') do
+          attach_gsl_function([matrix_type, scalar_type], :void)
+          define_module_upcall!(:x)
+        end
+
         # Accessing Matrix Elements
 
         each_local_name('get') do
-          attach_gsl_function([matrix_type, :size_t, :size_t], :void)
+          attach_gsl_function([matrix_type, :size_t, :size_t], scalar_type)
           define_module_upcall(:i, :j)
         end
 
