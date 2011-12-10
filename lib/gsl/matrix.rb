@@ -19,6 +19,32 @@ module GSL
     end
   end
 
+  class AttachDsl
+    attr_reader :mod, :local_name, :gsl_name
+
+    def initialize(mod, local_name, gsl_name)
+      @mod = mod
+      @local_name = local_name
+      @gsl_name = gsl_name
+    end
+
+    def attach_gsl_function(*args)
+      GSL.attach_function(gsl_name, *args)
+    end
+
+    def define_instance_upcall(*args)
+      mod.define_instance_upcall(local_name, gsl_name, args)
+    end
+
+    def define_module_upcall(*args)
+      mod.define_module_upcall(local_name, gsl_name, args)
+    end
+
+    def define_module_upcall!(*args)
+      mod.define_module_upcall!(local_name, gsl_name, args)
+    end
+  end
+
   module Helpers
     def underscore(camel_case_word)
       camel_case_word.to_s.gsub(/::/, '_').
@@ -50,9 +76,10 @@ module GSL
       [underscore(self).to_sym, scalar_type]
     end
 
-    def each_with_gsl_name(*local_names)
+    def each_local_name(*local_names, &block)
       local_names.each do |local_name|
-        yield(local_name, gsl_name(local_name))
+        dsl = AttachDsl.new(self, local_name, gsl_name(local_name))
+        dsl.instance_eval &block
       end
     end
 
@@ -131,39 +158,39 @@ module GSL
 
         # Allocating matrices
 
-        each_with_gsl_name('alloc', 'calloc') do |local_name, gsl_name|
-          GSL.attach_function(gsl_name, [:size_t, :size_t], matrix_type)
-          define_instance_upcall(local_name, gsl_name, %w[rows cols])
+        each_local_name('alloc', 'calloc') do
+          attach_gsl_function([:size_t, :size_t], matrix_type)
+          define_instance_upcall(:rows, :cols)
         end
 
-        each_with_gsl_name('free') do |local_name, gsl_name|
-          GSL.attach_function(gsl_name, [matrix_type], :void)
-          define_instance_upcall(local_name, gsl_name, %w[ptr])
-          define_module_upcall(local_name, gsl_name)
+        each_local_name('free') do
+          attach_gsl_function([matrix_type], :void)
+          define_instance_upcall(:ptr)
+          define_module_upcall
         end
 
         # Accessing Matrix Elements
 
-        each_with_gsl_name('get') do |local_name, gsl_name|
-          GSL.attach_function(gsl_name, [matrix_type, :size_t, :size_t], :void)
-          define_module_upcall(local_name, gsl_name, %w[i j])
+        each_local_name('get') do
+          attach_gsl_function([matrix_type, :size_t, :size_t], :void)
+          define_module_upcall(:i, :j)
         end
 
-        each_with_gsl_name('set') do |local_name, gsl_name|
-          GSL.attach_function(gsl_name, [matrix_type, :size_t, :size_t, scalar_type], :void)
-          define_module_upcall!(local_name, gsl_name, %w[i j x])
+        each_local_name('set') do
+          attach_gsl_function([matrix_type, :size_t, :size_t, scalar_type], :void)
+          define_module_upcall!(:i, :j, :x)
         end
 
         # Matrix Operations
 
-        each_with_gsl_name('add', 'sub', 'mul_elements', 'div_elements') do |local_name, gsl_name|
-          GSL.attach_function(gsl_name, [matrix_type, matrix_type], :void)
-          define_module_upcall!(local_name, gsl_name, %w[other])
+        each_local_name('add', 'sub', 'mul_elements', 'div_elements') do
+          attach_gsl_function([matrix_type, matrix_type], :void)
+          define_module_upcall!(:other)
         end
 
-        each_with_gsl_name('scale', 'add_constant') do |local_name, gsl_name|
-          GSL.attach_function(gsl_name, [matrix_type, scalar_type], :void)
-          define_module_upcall!(local_name, gsl_name, %w[arg])
+        each_local_name('scale', 'add_constant') do
+          attach_gsl_function([matrix_type, scalar_type], :void)
+          define_module_upcall!(:arg)
         end
       end
     end
@@ -188,9 +215,9 @@ module GSL
 
         # Finding maximum and minimum elements of matrices
 
-        each_with_gsl_name('max', 'min') do |local_name, gsl_name|
-          GSL.attach_function(gsl_name, [matrix_type], scalar_type)
-          define_module_upcall(local_name, gsl_name)
+        each_local_name('max', 'min') do
+          attach_gsl_function([matrix_type], scalar_type)
+          define_module_upcall
         end
       end
     end
