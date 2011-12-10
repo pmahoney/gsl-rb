@@ -2,6 +2,8 @@ require 'ffi'
 
 require 'gsl/gsl'
 
+require 'gsl/helper'
+
 require 'gsl/error'
 
 require 'gsl/matrix'
