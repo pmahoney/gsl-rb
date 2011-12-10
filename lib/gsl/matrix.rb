@@ -1,24 +1,6 @@
 require 'gsl/gsl'
 
 module GSL
-  class FunctionSpec
-    attr_reader :gsl_name, :local_name
-
-    def initialize(local_name, gsl_name)
-      @local_name = local_name
-      @gsl_name = gsl_name
-    end
-
-    # getter and setter combined
-    def signature(*sig)
-      if sig.size > 0
-        @signature = sig
-      else
-        @signature
-      end
-    end
-  end
-
   class AttachDsl
     attr_reader :mod, :local_name, :gsl_name
 
