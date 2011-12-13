@@ -3,6 +3,7 @@ require 'ffi'
 require 'gsl/gsl'
 
 require 'gsl/helper'
+require 'gsl/attach_dsl'
 
 require 'gsl/error'
 
