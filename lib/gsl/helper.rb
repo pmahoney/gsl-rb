@@ -15,7 +15,9 @@ module GSL
     # When inside GSL::Matrix::Float, when name is 'alloc',
     # returns 'gsl_matrix_float_alloc'.
     def gsl_name(name)
-      underscore(self.to_s + '_' + name)
+      components = self.to_s.split('::')
+      components.delete('Double')
+      underscore(components.join('::') + '_' + name)
     end
 
     # When inside GSL::Matrix::Float,returns `[:gsl_matrix_float, :float]`

@@ -1,9 +1,9 @@
 require 'gsl/matrix'
 
 module GSL
-  class Matrix
+  module Matrix
     class LongDouble < FFI::Struct
-      include MatrixFunctions
+      include Functions
     end
   end
 end

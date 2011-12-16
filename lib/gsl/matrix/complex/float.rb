@@ -1,10 +1,10 @@
 require 'gsl/matrix'
 
 module GSL
-  class Matrix
+  module Matrix
     class Complex
       class Float < FFI::Struct
-        include MatrixFunctions
+        include Functions
       end
     end
   end
