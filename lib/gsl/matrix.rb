@@ -1,5 +1,17 @@
 require 'gsl/gsl'
 
+# See https://github.com/ffi/ffi/issues/118
+module FFI
+  class Pointer
+    type = FFI.find_type(:size_t)
+    type, _ = FFI::TypeDefs.find do |(name, t)|
+      method_defined? "read_#{name}" if t == type
+    end
+
+    alias_method :read_size_t, "read_#{type}" if type
+  end
+end
+
 module GSL
   module Matrix
     module Functions
@@ -88,7 +100,7 @@ module GSL
 
     # Functions only defined on real matrices (as opposed to complex).
     module RealFunctions
-      def included(mod)
+      def self.included(mod)
         mod.module_eval do
           matrix_type, scalar_type = gsl_types
 
@@ -97,6 +109,42 @@ module GSL
           each_local_name('max', 'min') do
             attach_gsl_function([matrix_type], scalar_type)
             define_module_upcall
+          end
+
+          each_local_name('minmax') do
+            attach_gsl_function([matrix_type, :pointer, :pointer], :void)
+            mod.module_eval %Q{
+              def #{local_name}
+                min = FFI::MemoryPointer.new(:#{scalar_type})
+                max = FFI::MemoryPointer.new(:#{scalar_type})
+                GSL.#{gsl_name}(self, min, max)
+                getter = 'read_' + '#{scalar_type}'
+                return min.send(getter), max.send(getter)
+              end
+            }
+          end
+
+          each_local_name('max_index', 'min_index') do
+            attach_gsl_function([matrix_type, :pointer, :pointer], :void)
+            mod.module_eval %Q{
+              def #{local_name}
+                i = FFI::MemoryPointer.new(:size_t)
+                j = FFI::MemoryPointer.new(:size_t)
+                GSL.#{gsl_name}(self, i, j)
+                return i.read_size_t, j.read_size_t
+              end
+            }
+          end
+
+          each_local_name('minmax_index') do
+            attach_gsl_function([matrix_type, :pointer, :pointer, :pointer, :pointer], :void)
+            mod.module_eval %Q{
+              def #{local_name}
+                args = [nil, nil, nil, nil].map { FFI::MemoryPointer.new(:size_t) }
+                GSL.#{gsl_name}(self, *args)
+                return args.map { |m| m.read_size_t }
+              end
+            }
           end
         end
       end
