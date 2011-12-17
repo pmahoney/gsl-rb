@@ -15,6 +15,17 @@ module GSL
         v = klass.new(1)
         v.must_be_instance_of(klass)
       end
+
+      def test_gets_and_sets_elements
+        v = klass.new(10)
+        10.times do |i|
+          v.set!(i, i+2)
+        end
+
+        10.times do |i|
+          v.get(i).must_equal(i+2)
+        end
+      end
     end
 
     # Create test class for each matrix type.  Run those same tests.

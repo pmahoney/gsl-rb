@@ -16,6 +16,8 @@ module GSL
           vector_type, scalar_type = gsl_types
           GSL.typedef :pointer, vector_type
 
+          # Vector allocation
+
           each_local_name('alloc', 'calloc') do
             attach_gsl_function([:size_t], vector_type)
             define_instance_upcall(:n)
@@ -25,6 +27,18 @@ module GSL
             attach_gsl_function([vector_type], :void)
             define_instance_upcall(:ptr)
             define_module_upcall
+          end
+
+          # Accessing vector elements
+
+          each_local_name('get') do
+            attach_gsl_function([vector_type, :size_t], scalar_type)
+            define_module_upcall(:i)
+          end
+
+          each_local_name('set') do
+            attach_gsl_function([vector_type, :size_t, scalar_type], :void)
+            define_module_upcall!(:i, :x)
           end
         end
 
